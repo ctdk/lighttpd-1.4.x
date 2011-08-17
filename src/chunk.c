@@ -4,7 +4,9 @@
  *
  */
 
+#include "server.h"
 #include "chunk.h"
+#include "log.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -42,6 +44,10 @@ static chunk *chunk_init(void) {
 	c->file.mmap.start = MAP_FAILED;
 	c->next = NULL;
 
+#ifdef MCPCHUNK
+	c->touched = 0;
+#endif
+
 	return c;
 }
 
@@ -73,6 +79,9 @@ static void chunk_reset(chunk *c) {
 		munmap(c->file.mmap.start, c->file.mmap.length);
 		c->file.mmap.start = MAP_FAILED;
 	}
+#ifdef MCPCHUNK
+	c->touched = 0;
+#endif
 }
 
 
@@ -239,6 +248,16 @@ int chunkqueue_append_mem(chunkqueue *cq, const char * mem, size_t len) {
 	return 0;
 }
 
+int chunkqueue_append_chunkqueue(chunkqueue *cq, chunkqueue *src) {
+	if(src == NULL) return 0;
+	chunkqueue_append_chunk(cq, src->first);
+	cq->last = src->last;
+	src->first = NULL;
+	src->last = NULL;
+
+	return 0;
+}
+
 buffer * chunkqueue_get_prepend_buffer(chunkqueue *cq) {
 	chunk *c;
 
@@ -362,6 +381,14 @@ int chunkqueue_is_empty(chunkqueue *cq) {
 	return cq->first ? 0 : 1;
 }
 
+int chunkqueue_is_empty_or_has_last_chunk(chunkqueue *cq) {
+	return chunkqueue_is_empty(cq) || is_last_chunk(cq->first);
+}
+
+int is_last_chunk(chunk* c) {
+	return c->mem->ptr[0] == '\0' && c->mem->used == 1;
+}
+
 int chunkqueue_remove_finished_chunks(chunkqueue *cq) {
 	chunk *c;
 
@@ -398,3 +425,105 @@ int chunkqueue_remove_finished_chunks(chunkqueue *cq) {
 
 	return 0;
 }
+
+/**
+ * the HTTP chunk-API
+ * 
+ * 
+ */
+
+static int chunk_encode_append_len(chunkqueue *cq, size_t len) {
+	size_t i, olen = len, j;
+	buffer *b;
+	
+	/*b = srv->tmp_chunk_len;*/
+	/*b = buffer_init();*/
+	b = chunkqueue_get_append_buffer(cq);
+	
+	if (len == 0) {
+		buffer_copy_string(b, "0");
+	} else {
+		for (i = 0; i < 8 && len; i++) {
+			len >>= 4;
+		}
+		
+		/* i is the number of hex digits we have */
+		buffer_prepare_copy(b, i + 1);
+		
+		for (j = i-1, len = olen; j+1 > 0; j--) {
+			b->ptr[j] = (len & 0xf) + (((len & 0xf) <= 9) ? '0' : 'a' - 10);
+			len >>= 4;
+		}
+		b->used = i;
+		b->ptr[b->used++] = '\0';
+	}
+		
+	buffer_append_string(b, "\r\n");
+	/*
+	chunkqueue_append_buffer(cq, b);
+	buffer_free(b);
+	*/
+	
+	return 0;
+}
+
+
+int chunk_encode_append_file(chunkqueue *cq, buffer *fn, off_t offset, off_t len) {
+	if (!cq) return -1;
+	if (len == 0) return 0;
+	
+	chunk_encode_append_len(cq, len);
+	
+	chunkqueue_append_file(cq, fn, offset, len);
+	
+	chunkqueue_append_mem(cq, "\r\n", 2 + 1);
+	
+	return 0;
+}
+
+int chunk_encode_append_buffer(chunkqueue *cq, buffer *mem) {
+	if (!cq) return -1;
+	if (mem->used <= 1) return 0;
+	
+	chunk_encode_append_len(cq, mem->used - 1);
+	
+	chunkqueue_append_buffer(cq, mem);
+	
+	chunkqueue_append_mem(cq, "\r\n", 2 + 1);
+	
+	return 0;
+}
+
+int chunk_encode_append_mem(chunkqueue *cq, const char * mem, size_t len) {
+	if (!cq) return -1;
+	if (len <= 1) return 0;
+	
+	chunk_encode_append_len(cq, len - 1);
+	
+	chunkqueue_append_mem(cq, mem, len);
+	
+	chunkqueue_append_mem(cq, "\r\n", 2 + 1);
+	
+	return 0;
+}
+
+int chunk_encode_append_queue(chunkqueue *cq, chunkqueue *src) {
+	int len = chunkqueue_length(src);
+	if (!cq) return -1;
+	if (len == 0) return 0;
+	
+	chunk_encode_append_len(cq, len);
+	
+	chunkqueue_append_chunkqueue(cq, src);
+	
+	chunkqueue_append_mem(cq, "\r\n", 2 + 1);
+	
+	return 0;
+}
+
+int chunk_encode_end(chunkqueue *cq) {
+	chunk_encode_append_len(cq, 0);
+	chunkqueue_append_mem(cq, "\r\n", 2 + 1);
+	return 0;
+}
+

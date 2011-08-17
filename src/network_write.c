@@ -28,6 +28,8 @@ int network_write_chunkqueue_write(server *srv, connection *con, int fd, chunkqu
 	chunk *c;
 	size_t chunks_written = 0;
 
+	log_error_write(srv, __FILE__, __LINE__, "s", "Getting here 2?");
+
 	for(c = cq->first; c; c = c->next) {
 		int chunk_finished = 0;
 
