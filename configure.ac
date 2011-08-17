@@ -444,6 +444,22 @@ if test "$WITH_MEMCACHE" != "no"; then
  AC_SUBST(MEMCACHE_LIB)
 fi
 
+dnl Check for libmemcached
+AC_MSG_CHECKING(for libmemcached)
+AC_ARG_WITH(libmemcached, AC_HELP_STRING([--with-libmemcached],[memcached storage using libmemcached for mod_mcpage]),
+[WITH_MEMCACHED=$withval],[WITH_MEMCACHED=no])
+AC_MSG_RESULT([$WITH_MEMCACHED])
+if test "$WITH_MEMCACHED" != "no"; then
+ AC_CHECK_LIB(memcached, memcached_create, [
+	AC_CHECK_HEADERS([libmemcached/memcached.h],[
+		MEMCACHED_LIB=-lmemcached
+		AC_DEFINE([HAVE_MEMCACHED], [1], [libmemcached])
+		AC_DEFINE([HAVE_MEMCACHED_H], [1], [libmemcached/memcached.h])
+	])
+ ])
+ AC_SUBST(MEMCACHED_LIB)
+fi
+
 dnl Check for lua
 AC_MSG_CHECKING(if lua-support is requested)
 AC_ARG_WITH(lua, AC_HELP_STRING([--with-lua],[lua engine for mod_cml]),
@@ -625,7 +641,7 @@ AC_OUTPUT
 
 
 do_build="mod_cgi mod_fastcgi mod_extforward mod_proxy mod_evhost mod_simple_vhost mod_access mod_alias mod_setenv mod_usertrack mod_auth mod_status mod_accesslog"
-do_build="$do_build mod_rrdtool mod_secdownload mod_expire mod_compress mod_dirlisting mod_indexfile mod_userdir mod_webdav mod_staticfile mod_scgi mod_flv_streaming"
+do_build="$do_build mod_rrdtool mod_secdownload mod_expire mod_compress mod_dirlisting mod_indexfile mod_userdir mod_webdav mod_staticfile mod_scgi mod_flv_streaming mod_deflate"
 
 plugins="mod_rewrite mod_redirect mod_ssi mod_trigger_b4_dl"
 features="regex-conditionals"
@@ -651,6 +667,13 @@ else
 	no_build="$no_build $plugins"
 fi
 
+plugins="mod_mcpage"
+if test ! "x$MEMCACHED_LIB" = x; then
+        do_build="$do_build $plugins"
+else
+        no_build="$no_build $plugins"
+fi
+
 features="storage-gdbm"
 if test ! "x$GDBM_LIB" = x; then
 	enable_feature="$enable_feature $features"
@@ -663,6 +686,13 @@ if test ! "x$MEMCACHE_LIB" = x; then
 	enable_feature="$enable_feature $features"
 else
 	disable_feature="$disable_feature $features"
+fi
+
+features="storage-libmemcached"
+if test ! "x$MEMCACHED_LIB" = x; then
+        enable_feature="$enable_feature $features"
+else
+        disable_feature="$disable_feature $features"
 fi
 
 features="compress-gzip compress-deflate"

@@ -8,6 +8,7 @@
 #include "response.h"
 #include "network.h"
 #include "http_chunk.h"
+#include "chunk.h"
 #include "stat_cache.h"
 #include "joblist.h"
 
@@ -149,6 +150,12 @@ int connection_close(server *srv, connection *con) {
 	connection_set_state(srv, con, CON_STATE_CONNECT);
 
 	return 0;
+}
+
+int connection_queue_is_empty(connection *con) {
+	if(!chunkqueue_is_empty(con->write_queue)) return 0;
+	if(!chunkqueue_is_empty(con->output_queue)) return 0;
+	return 1;
 }
 
 #if 0
@@ -446,6 +453,7 @@ static int connection_handle_write_prepare(server *srv, connection *con) {
 				con->file_finished = 1;
 
 				chunkqueue_reset(con->write_queue);
+				chunkqueue_reset(con->output_queue);
 			}
 			break;
 		default:
@@ -476,6 +484,7 @@ static int connection_handle_write_prepare(server *srv, connection *con) {
 		con->response.transfer_encoding &= ~HTTP_TRANSFER_ENCODING_CHUNKED;
 		con->parsed_response &= ~HTTP_CONTENT_LENGTH;
 		chunkqueue_reset(con->write_queue);
+		chunkqueue_reset(con->output_queue);
 
 		con->file_finished = 1;
 		break;
@@ -541,6 +550,20 @@ static int connection_handle_write_prepare(server *srv, connection *con) {
 
 			response_header_overwrite(srv, con, CONST_STR_LEN("Content-Type"), CONST_STR_LEN("text/html"));
 		}
+		break;
+	}
+
+	/* Allow filter plugins to change response headers before they are written. */
+	switch(plugins_call_handle_response_start(srv, con)) {
+	case HANDLER_GO_ON:
+	case HANDLER_FINISHED:
+		/* response start is finished */
+		break;
+	default:
+		/* something strange happend */
+		log_error_write(srv, __FILE__, __LINE__, "s", "Filter plugin failed.");
+		connection_set_state(srv, con, CON_STATE_ERROR);
+		joblist_append(srv, con);
 		break;
 	}
 
@@ -615,6 +638,7 @@ static int connection_handle_write_prepare(server *srv, connection *con) {
 		con->file_finished = 1;
 
 		chunkqueue_reset(con->write_queue);
+		chunkqueue_reset(con->output_queue);
 		con->response.transfer_encoding &= ~HTTP_TRANSFER_ENCODING_CHUNKED;
 	}
 
@@ -624,12 +648,60 @@ static int connection_handle_write_prepare(server *srv, connection *con) {
 }
 
 static int connection_handle_write(server *srv, connection *con) {
-	switch(network_write_chunkqueue(srv, con, con->write_queue, MAX_WRITE_LIMIT)) {
+	int finished = 0;
+	int len;
+
+	/* Allow filter plugins to modify response conent */
+	switch(plugins_call_handle_response_filter(srv, con)) {
+	case HANDLER_GO_ON:
+		finished = con->file_finished;
+		/* response content not changed */
+		break;
+	case HANDLER_COMEBACK:
+		/* response filter has more work */
+		finished = 0;
+		break;
+	case HANDLER_FINISHED:
+		/* response filter is finished */
+		finished = 1;
+		break;
+	default:
+		/* something strange happend */
+		log_error_write(srv, __FILE__, __LINE__, "s", "Filter plugin failed.");
+		connection_set_state(srv, con, CON_STATE_ERROR);
+		joblist_append(srv, con);
+		finished = 1;
+		break;
+	}
+
+	/* move chunks from write_queue to output_queue. */
+	if (con->request.http_method == HTTP_METHOD_HEAD) {
+		chunkqueue_reset(con->write_queue);
+	} else {
+		len = chunkqueue_length(con->write_queue);
+		if(con->response.transfer_encoding & HTTP_TRANSFER_ENCODING_CHUNKED) {
+			chunk_encode_append_queue(con->output_queue, con->write_queue);
+			if(finished && !con->end_chunk) {
+				con->end_chunk = 1;
+				chunk_encode_end(con->output_queue);
+			}
+		} else {
+			chunkqueue_append_chunkqueue(con->output_queue, con->write_queue);
+		}
+		con->write_queue->bytes_out += len;
+	}
+	/* write chunks from output_queue to network */
+	switch(network_write_chunkqueue(srv, con, con->output_queue)) {
 	case 0:
-		con->write_request_ts = srv->cur_ts;
-		if (con->file_finished) {
+		on->write_request_ts = srv->cur_ts;
+		if (finished) {
+			/* log_error_write(srv, __FILE__, __LINE__, "s", "Finished, case 0"); */
 			connection_set_state(srv, con, CON_STATE_RESPONSE_END);
 			joblist_append(srv, con);
+		} else {
+			/* not finished yet -> WRITE */
+			/* log_error_write(srv, __FILE__, __LINE__, "s", "Not finished, case 0"); */
+			con->is_writable = 1;
 		}
 		break;
 	case -1: /* error on our side */
@@ -644,6 +716,7 @@ static int connection_handle_write(server *srv, connection *con) {
 		break;
 	case 1:
 		con->write_request_ts = srv->cur_ts;
+		/* log_error_write(srv, __FILE__, __LINE__, "s", "Case 1. Herm."); */
 		con->is_writable = 0;
 
 		/* not finished yet -> WRITE */
@@ -703,6 +776,7 @@ connection *connection_init(server *srv) {
 
 #undef CLEAN
 	con->write_queue = chunkqueue_init();
+	con->output_queue = chunkqueue_init();
 	con->read_queue = chunkqueue_init();
 	con->request_content_queue = chunkqueue_init();
 	chunkqueue_set_tempdirs(con->request_content_queue, srv->srvconf.upload_tempdirs);
@@ -731,6 +805,7 @@ void connections_free(server *srv) {
 		connection_reset(srv, con);
 
 		chunkqueue_free(con->write_queue);
+		chunkqueue_free(con->output_queue);
 		chunkqueue_free(con->read_queue);
 		chunkqueue_free(con->request_content_queue);
 		array_free(con->request.headers);
@@ -788,7 +863,10 @@ int connection_reset(server *srv, connection *con) {
 	con->http_status = 0;
 	con->file_finished = 0;
 	con->file_started = 0;
+	con->end_chunk = 0;
 	con->got_response = 0;
+//	con->use_cache_file = 0;
+//	con->write_cache_file = 0;
 
 	con->parsed_response = 0;
 
@@ -861,6 +939,7 @@ int connection_reset(server *srv, connection *con) {
 	array_reset(con->environment);
 
 	chunkqueue_reset(con->write_queue);
+	chunkqueue_reset(con->output_queue);
 	chunkqueue_reset(con->request_content_queue);
 
 	/* the plugins should cleanup themself */
@@ -1251,7 +1330,6 @@ static handler_t connection_handle_fdevent(server *srv, void *context, int reven
 	}
 
 	if (con->state == CON_STATE_WRITE &&
-	    !chunkqueue_is_empty(con->write_queue) &&
 	    con->is_writable) {
 
 		if (-1 == connection_handle_write(srv, con)) {
@@ -1659,15 +1737,16 @@ int connection_state_machine(server *srv, connection *con) {
 			}
 
 			/* only try to write if we have something in the queue */
-			if (!chunkqueue_is_empty(con->write_queue)) {
 #if 0
+			if (!connection_queue_is_empty(con)) {
 				log_error_write(srv, __FILE__, __LINE__, "dsd",
 						con->fd,
 						"packets to write:",
-						con->write_queue->used);
-#endif
+						con->output_queue->used);
 			}
-			if (!chunkqueue_is_empty(con->write_queue) && con->is_writable) {
+#endif
+			/* log_error_write(srv, __FILE__, __LINE__, "sd", "Connection writable? ", con->is_writable); */
+			if (con->is_writable) {
 				if (-1 == connection_handle_write(srv, con)) {
 					log_error_write(srv, __FILE__, __LINE__, "ds",
 							con->fd,
@@ -1675,7 +1754,8 @@ int connection_state_machine(server *srv, connection *con) {
 					connection_set_state(srv, con, CON_STATE_ERROR);
 				}
 			}
-
+			/* log_error_write(srv, __FILE__, __LINE__, "sd", "Connection still writable? ", con->is_writable); */
+				
 			break;
 		case CON_STATE_ERROR: /* transient */
 
@@ -1804,11 +1884,17 @@ int connection_state_machine(server *srv, connection *con) {
 		 * - if we have data to write
 		 * - if the socket is not writable yet
 		 */
-		if (!chunkqueue_is_empty(con->write_queue) &&
+/*		if (!chunkqueue_is_empty(con->write_queue) &&
 		    (con->is_writable == 0) &&
 		    (con->traffic_limit_reached == 0)) {
+			*/
+                if ((con->is_writable == 0) &&
+                    (con->traffic_limit_reached == 0) &&
+                                !connection_queue_is_empty(con)) {
+			/* log_error_write(srv, __FILE__, __LINE__, "s", "We're setting write-fdevent."); */
 			fdevent_event_set(srv->ev, &(con->fde_ndx), con->fd, FDEVENT_OUT);
 		} else {
+/*			log_error_write(srv, __FILE__, __LINE__, "s", "Not setting write-fdevent."); */
 			fdevent_event_del(srv->ev, &(con->fde_ndx), con->fd);
 		}
 		break;

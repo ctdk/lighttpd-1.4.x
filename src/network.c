@@ -918,6 +918,18 @@ int network_write_chunkqueue(server *srv, connection *con, chunkqueue *cq, off_t
 		}
 	}
 
+	socklen_t oldlen;
+	int sendbuff, oldbuff;
+	getsockopt(con->fd, SOL_SOCKET, SO_SNDBUF, &oldbuff, &oldlen);
+	/* log_error_write(srv, __FILE__, __LINE__, "sdsd", "Old sock len is:", oldbuff, "and bytes_in is:", cq->bytes_in); */
+	/* sendbuff = 150000; */ /* Bad test, but a test. */
+	sendbuff = oldbuff;
+	off_t cql = chunkqueue_length(cq);
+	if (cql > oldbuff){
+		sendbuff = cql;
+		setsockopt(con->fd, SOL_SOCKET, SO_SNDBUF, &sendbuff, sizeof(sendbuff));
+		}
+
 	written = cq->bytes_out;
 
 #ifdef TCP_CORK
@@ -940,8 +952,13 @@ int network_write_chunkqueue(server *srv, connection *con, chunkqueue *cq, off_t
 
 	if (ret >= 0) {
 		chunkqueue_remove_finished_chunks(cq);
+		/* log_error_write(srv, __FILE__, __LINE__, "sdsd", "Wrote to backend, cq empty: ", chunkqueue_is_empty(cq), " return was: ", ret); */
 		ret = chunkqueue_is_empty(cq) ? 0 : 1;
 	}
+
+	if (sendbuff != oldbuff){
+		setsockopt(con->fd, SOL_SOCKET, SO_SNDBUF, &oldbuff, sizeof(oldbuff));
+		}
 
 #ifdef TCP_CORK
 	if (corked) {

@@ -425,8 +425,10 @@ int http_request_parse(server *srv, connection *con) {
 
 					if (major_num == 1 && minor_num == 1) {
 						con->request.http_version = con->conf.allow_http11 ? HTTP_VERSION_1_1 : HTTP_VERSION_1_0;
+						con->request.true_http_10_client = 0;
 					} else if (major_num == 1 && minor_num == 0) {
 						con->request.http_version = HTTP_VERSION_1_0;
+						con->request.true_http_10_client = 1;
 					} else {
 						con->http_status = 505;
 

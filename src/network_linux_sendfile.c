@@ -33,6 +33,7 @@ int network_write_chunkqueue_linuxsendfile(server *srv, connection *con, int fd,
 	for(c = cq->first; (max_bytes > 0) && (NULL != c); c = c->next) {
 		int chunk_finished = 0;
 
+		/* log_error_write(srv, __FILE__, __LINE__, "s", "Started chunk write"); */
 		switch(c->type) {
 		case MEM_CHUNK: {
 			char * offset;
@@ -55,13 +56,16 @@ int network_write_chunkqueue_linuxsendfile(server *srv, connection *con, int fd,
 
 			for (tc = c, i = 0; i < num_chunks; tc = tc->next, i++) {
 				if (tc->mem->used == 0) {
+					/* log_error_write(srv, __FILE__, __LINE__, "s", "mem used was 0"); */
 					chunks[i].iov_base = tc->mem->ptr;
 					chunks[i].iov_len  = 0;
 				} else {
 					offset = tc->mem->ptr + tc->offset;
 					toSend = tc->mem->used - 1 - tc->offset;
+					/* log_error_write(srv, __FILE__, __LINE__, "sdsd", "Offset is: ", offset, " toSend is: ", toSend); */
 
 					chunks[i].iov_base = offset;
+					/* log_error_write(srv, __FILE__, __LINE__, "ss", "What do we haveth? ", chunks[i].iov_base); */
 
 					/* protect the return value of writev() */
 					if (toSend > max_bytes ||
@@ -71,17 +75,20 @@ int network_write_chunkqueue_linuxsendfile(server *srv, connection *con, int fd,
 						num_chunks = i + 1;
 						break;
 					} else {
+						/* log_error_write(srv, __FILE__, __LINE__, "s", "Supposedly we're cool"); */
 						chunks[i].iov_len = toSend;
 					}
 
 					num_bytes += toSend;
 				}
 			}
+			/* log_error_write(srv, __FILE__, __LINE__, "sdsd", "Num chunks is", num_chunks, "num_bytes is", num_bytes); */
 
 			if ((r = writev(fd, chunks, num_chunks)) < 0) {
 				switch (errno) {
 				case EAGAIN:
 				case EINTR:
+					/* log_error_write(srv, __FILE__, __LINE__, "sdsd", "OK, we have an errno of", errno, " and r of ", r); */
 					r = 0;
 					break;
 				case EPIPE:
@@ -99,7 +106,10 @@ int network_write_chunkqueue_linuxsendfile(server *srv, connection *con, int fd,
 			cq->bytes_out += r;
 			max_bytes -= r;
 
+			/* log_error_write(srv, __FILE__, __LINE__, "sdsd", "bytes out is: ", cq->bytes_out, "and r is: ", r); */
+
 			for(i = 0, tc = c; i < num_chunks; i++, tc = tc->next) {
+				/* log_error_write(srv, __FILE__, __LINE__, "sdsdsd", "i is", i, "r is", r, "and iov_len for this chunk is", chunks[i].iov_len); */
 				if (r >= (ssize_t)chunks[i].iov_len) {
 					/* written */
 					r -= chunks[i].iov_len;
@@ -114,7 +124,7 @@ int network_write_chunkqueue_linuxsendfile(server *srv, connection *con, int fd,
 					}
 				} else {
 					/* partially written */
-
+					/* log_error_write(srv, __FILE__, __LINE__, "s", "Aiee! Partially written, and we don't seem to come back!"); */
 					tc->offset += r;
 					chunk_finished = 0;
 

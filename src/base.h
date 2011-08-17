@@ -153,6 +153,7 @@ typedef struct {
 
 	http_method_t  http_method;
 	http_version_t http_version;
+	int true_http_10_client;
 
 	buffer *request_line;
 
@@ -382,8 +383,10 @@ typedef struct {
 
 	int file_started;
 	int file_finished;
+	int end_chunk; /* used for chunked transfer encoding. */
 
-	chunkqueue *write_queue;      /* a large queue for low-level write ( HTTP response ) [ file, mem ] */
+	chunkqueue *write_queue;  /* a large queue for HTTP response content [ file, mem ] */
+	chunkqueue *output_queue; /* a large queue for low-level write ( HTTP response ) [ file, mem ] */
 	chunkqueue *read_queue;       /* a small queue for low-level read ( HTTP request ) [ mem ] */
 	chunkqueue *request_content_queue; /* takes request-content into tempfile if necessary [ tempfile, mem ]*/
 
@@ -629,6 +632,7 @@ typedef struct server {
 
 	connections *conns;
 	connections *joblist;
+	connections *joblist_prev;
 	connections *fdwaitqueue;
 
 	stat_cache  *stat_cache;
