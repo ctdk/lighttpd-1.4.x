@@ -1,0 +1,15 @@
+Package: lighttpd-mod-mysql-vhost
+Source: lighttpd
+Version: 1.4.29.svn-1.3~dkos50+ct1
+Architecture: amd64
+Maintainer: Debian lighttpd maintainers <pkg-lighttpd-maintainers@lists.alioth.debian.org>
+Installed-Size: 88
+Depends: lighttpd (= 1.4.29.svn-1.3~dkos50+ct1), libc6 (>= 2.7-1), libmysqlclient15off (>= 5.0.27-1)
+Section: web
+Priority: optional
+Homepage: http://www.lighttpd.net
+Description: MySQL-based virtual host configuration for lighttpd
+ This package contains the myqsl_vhost module for lighttpd. With
+ this module, it is possible to write the configuration for virtual
+ hosts into a MySQL table instead of including it in the lighttpd
+ configuration file.

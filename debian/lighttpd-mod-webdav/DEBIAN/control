@@ -1,0 +1,23 @@
+Package: lighttpd-mod-webdav
+Source: lighttpd
+Version: 1.4.29.svn-1.3~dkos50+ct1
+Architecture: amd64
+Maintainer: Debian lighttpd maintainers <pkg-lighttpd-maintainers@lists.alioth.debian.org>
+Installed-Size: 132
+Depends: lighttpd (= 1.4.29.svn-1.3~dkos50+ct1), libc6 (>= 2.7-1), libsqlite3-0 (>= 3.5.9), libuuid1 (>= 1.05), libxml2 (>= 2.6.27)
+Section: web
+Priority: optional
+Homepage: http://www.lighttpd.net
+Description: WebDAV module for lighttpd
+ The WebDAV module is a very minimalistic implementation of RFC 2518.
+ Minimalistic means that not all operations are implemented yet.
+ .
+ Currently supports:
+  GET
+  POST
+  HEAD
+  PROPFIND
+  OPTIONS
+  MKCOL
+  DELETE
+  PUT

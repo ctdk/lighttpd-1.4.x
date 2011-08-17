@@ -1,0 +1,18 @@
+Package: lighttpd-mod-cml
+Source: lighttpd
+Version: 1.4.29.svn-1.3~dkos50+ct1
+Architecture: amd64
+Maintainer: Debian lighttpd maintainers <pkg-lighttpd-maintainers@lists.alioth.debian.org>
+Installed-Size: 120
+Depends: lighttpd (= 1.4.29.svn-1.3~dkos50+ct1), libc6 (>= 2.7-1), liblua5.1-0, libmemcache0 (>= 1.4.0.rc2)
+Recommends: memcached
+Section: web
+Priority: optional
+Homepage: http://www.lighttpd.net
+Description: Cache meta language module for lighttpd
+ With the cache meta language, it is possible to describe to the
+ dependencies of a cached file to its source files/scripts. For the
+ cache files, the scripting language LUA is used.
+ .
+ THIS MODULE IS OBSOLETED AND WILL BE REMOVED IN LIGHTTPD 1.5.
+ USE mod_magnet INSTEAD.

@@ -1,0 +1,24 @@
+#!/usr/bin/make -f
+
+include /usr/share/cdbs/1/rules/debhelper.mk
+include /usr/share/cdbs/1/class/autotools.mk
+include /usr/share/cdbs/1/rules/patchsys-quilt.mk
+
+DEB_CONFIGURE_EXTRA_FLAGS += --libdir=/usr/lib/lighttpd --with-openssl \
+			     --with-kerberos5 --with-pcre --with-bz2   \
+			     --with-ldap --with-mysql --with-memcache  \
+			     --with-lua=lua5.1 --with-gdbm --with-attr \
+			     --with-webdav-locks --with-webdav-props   \
+			     --with-fam --with-libmemcached
+
+configure/lighttpd::
+	chmod a+x debian/create-mime.assign.pl
+	chmod a+x debian/include-conf-enabled.pl
+	chmod a+x debian/include-sites-enabled.pl
+	chmod a+x debian/lighty-enable-mod
+	chmod a+x debian/use-ipv6.pl
+
+binary-post-install/lighttpd::
+	#rm -f debian/lighttpd/usr/share/man/man1/spawn-fcgi.1*
+	#mv debian/lighttpd/usr/bin/spawn-fcgi \
+	#    debian/lighttpd/usr/bin/spawn-fcgi.lighttpd

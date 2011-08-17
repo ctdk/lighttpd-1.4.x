@@ -1,0 +1,2 @@
+shlibs:Depends=libc6 (>= 2.7-1), libgdbm3, libmemcache0 (>= 1.4.0.rc2), libpcre3 (>= 7.4)
+misc:Depends=

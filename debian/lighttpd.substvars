@@ -1,0 +1,3 @@
+perl:Depends=perl
+shlibs:Depends=libattr1 (>= 2.4.41-1), libbz2-1.0, libc6 (>= 2.7-1), libfam0, libldap-2.4-2 (>= 2.4.7), libmemcached6 (>= 0.44), libpcre3 (>= 7.4), libssl0.9.8 (>= 0.9.8m-1), zlib1g (>= 1:1.1.4)
+misc:Depends=

@@ -1,0 +1,2 @@
+shlibs:Depends=libc6 (>= 2.7-1), liblua5.1-0
+misc:Depends=

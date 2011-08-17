@@ -1,0 +1,16 @@
+Package: lighttpd-mod-trigger-b4-dl
+Source: lighttpd
+Version: 1.4.29.svn-1.3~dkos50+ct1
+Architecture: amd64
+Maintainer: Debian lighttpd maintainers <pkg-lighttpd-maintainers@lists.alioth.debian.org>
+Installed-Size: 112
+Depends: lighttpd (= 1.4.29.svn-1.3~dkos50+ct1), libc6 (>= 2.7-1), libgdbm3, libmemcache0 (>= 1.4.0.rc2), libpcre3 (>= 7.4)
+Recommends: memcached
+Replaces: lighttpd (<< 1.4.10-5)
+Section: web
+Priority: optional
+Homepage: http://www.lighttpd.net
+Description: Anti-deep-linking module for lighttpd
+ The trigger-b4-dl module for lighttpd can prevent deep linking
+ from other sites by requiring users to visit a trigger URL to
+ be able to download certain files.
