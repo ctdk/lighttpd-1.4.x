@@ -1,0 +1,4 @@
+This is a build of lighttpd 1.4.x with some added modules and features: chunked
+encoding and mod_deflate backported from 1.5, and the mod_mcpage module for 
+caching fully rendered pages in memcached. For more explanation, see 
+README.mod_mcpage.

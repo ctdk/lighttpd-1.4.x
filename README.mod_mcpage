@@ -1,0 +1,180 @@
+INSTALLATION:
+
+(This README assumes you've checked out the git repo with the whole lighttpd +
+mod_mcpage tree. To configure, see the instructions at http://redmine.lighttpd.net/projects/lighttpd/wiki/DevelSubversion.)
+
+This module requires libmemached, not the old libmemcache that lighttpd already
+uses in some places. To use mod_mcpage, you'll need to install libmemcached
+(available from http://tangent.org/552/libmemcached.html) and pass configure
+the --with-libmemcached argument.
+
+USAGE:
+
+This assumes that you are using lighttpd as a lightweight proxy sitting in
+front of your beefier backend application. This module has been tested with the
+http and fastcgi backends, but not SCGI or normal CGI. They are likely to work,
+however. It has also been tested and found to work with static files on disk.
+
+Now, mod_mcpage will place pages into memcached itself, storing the page to 
+return and its content type, along with compressing the page if need be, with 
+no backend changes required. This is best used for pages like story or posts, 
+comments, and index pages for anonymous users. A two to five minute timeout for
+the pages is a good value. Then, in the lighttpd configuration, set something 
+up like the example configuration below to look for pages in memcached. If a 
+page is found in memcached, then it is gunzipped if necessary and returned to 
+the user without ever hitting the backend. If it's not found, the request is 
+passed along to the backend as usual.
+
+This module will look for pages in memcached with keys based on the namespace 
+(if given), the key prefix (if given), and the URL itself. Thus, your backend
+should place the pages into memcached with a key like "mysite-urlprefix_/url".
+Most memcached clients allow you to set a namespace when you configure the
+memcached connection, so if you have done so, then the key should be like
+"urlprefix_/url/being/stored" or "/url/being/stored". That is, however, up to
+you.
+
+If the namespace is not set, it will now default to using the hostname of the
+request.
+
+This module will store and retrieve keys according to a naming scheme like:
+
+namespace (optional, defaults to hostname) + key prefix (optional) + URI
+
+If you're only caching one site's pages in memcached, then URI will be 
+sufficient. However, if you want to cache more than one site's pages, you'll
+need to set at least the namespace. The keyprefix is useful if you want to make
+sure you don't collide with any other things you're setting in memcached that
+use the URI.
+
+An additional option has been added to make MD5 hashes of URIs for the memcached
+keys. It does incur a small performance penalty, however, so unless you have
+URIs that are longer than memcached's maximum keylength (along with the
+namespace and key prefixes) you probably want to leave this off.
+
+You can also use a local fast memcached with a quick time-out for extra quick 
+serving. It tiers with the other memcached servers (which you can have an array
+of) so that data from the remote memcached servers gets put into the fast local 
+memcached server, where it will live for a few seconds until it times out 
+and gets fetched from the remote again. For very frequently accessed pages, 
+this can be an at least 10x speed increase over just remote memcached servers.
+
+
+CONFIGURATION OPTIONS:
+
+mcpage.enable = "enable|disable" - Enables or disables the module. Can be turned
+				   on or off within the same configuration file.
+				   Disabled by default.
+mcpage.memcached-hosts		 - a list of memcached servers you want to use.
+				   Servers are listed in the form 
+				   "10.0.0.1:11211", "10.0.0.2:11211", etc.
+mcpage.memcached-namespace	 - The namespace you want to use. May be unset.
+				   NB: if unset, currently, it uses the hostname
+				   of the request to set the namespace.
+mcpage.memcached-keyprefix	 - If your URLs are stored in memcached with
+				   a key prefix, you can set it here.
+mcpage.memcached-hashing	 - Hashing behavior you want to use. If you're
+				   using Cache::Memcached::Fast, set this to
+				   "CRC" unless you've specifically set the
+				   hashing algorithm to something else. Other-	
+				   wise, it defaults to libmemcached's default,
+				   which is *not* the same as Cache::Memcached
+				   or Cache::Memcached::Fast. More information
+				   on the types of hashing available can be
+				   found in the libmemcached documentation.
+mcpage.memcached-behavior	 - Set the server distribution behavior.
+				   Defaults to "MODULA", but can be set to 
+				   "CONSISTENT". As per libmemcached behavior,
+				   "KETAMA" is an alias for "CONSISTENT" at this
+				   time.
+mcpage.memcached-expire		 - Expiration time, in minutes, for pages placed
+				   into memcached. Set to 0 to disable.
+mcpage.memcached-minsize	 - Minimum size, in kilobytes, for compressing
+				   pages before putting them into memcached.
+				   Note that values above 1024 KB are not 
+				   particularly useful, because memcached does
+				   not store objects larger than 1MB by default.
+				   If you recompile memcached to support larger
+				   objects, adjust MC_MAX_SIZE in mod_mcpage.h
+				   as needed and recompile.
+mcpage.mecached-noblock = "enable|disable"
+				 - Enable or disable non-blocking I/O for
+				   memcached. Increases speed setting things
+				   into memcached, but failure is never
+				   reported. Getting objects is apparently about
+				   the same speed.
+mcpage.debug = "enable|disable"	
+mcpage.memcached-debug = "enable|disable"
+mcpage.zlib-debug = "enable|disable"
+mcpage.debug-verbose = "enable|disable"
+				- Enable or disable all debugging statements,
+				  memcached specific debugging statements,
+				  zlib specific debugging statements, or extra
+				  verbose debugging statements.
+mcpage.memcached-put = "disable|enable"
+				- Enable or disable mod_mcpage placing pages
+				  into memcached. If the module is enabled but
+				  this is set to disable, it will be up to the
+				  backend application to set the page into
+				  memory. Also, the backend will still need
+				  to encode the page properly with the content
+				  type of the page and the page itself
+				  concatenated together, separated by a null
+				  byte. This option is enabled by default.
+mcpage.memcached-binary = "disable|enable"
+				- Enable the memcached binary protocol. Defaults
+				  to "disable".
+mcpage.localmc-enable = "enable|disable"
+				- Enable the local, short lived memcached cache
+				  that fetches data from the remote memcached
+				  server(s) and keeps it locally for a few
+				  seconds. Note: for namespace, keyprefix, and
+				  relevant memcached settings, the local fast
+				  memcached server will use the same settings as
+				  the remote memcached(s).
+mcpage.localmc-expire 		- Expiry for fast local memcached in seconds.
+				  Defaults to 5.
+mcpage.localmc-addr		- Set ONLY one of mcpage.localmc-addr or 
+-OR-				  mcpage.localmc-socket. localmc-addr is an
+mcpage.localmc-socket		  address and port for the fast cache to connect
+-OR-				  to, localmc-socket is a Unix domain socket to
+nothing at all			  connect to (like /tmp/memcached.sock). If you
+				  set neither of these options, then it uses the
+				  sensible default of "127.0.0.1:11211".
+mcpage.md5 = "enable|disable"	- Use a MD5 hash of the URI for the memcached
+				  key. Default disabled.
+mcpage.announce	= "enabled|disabled
+				- Add 'X-Served-by-memcached' to the response
+				  headers. mcpage.debug will do this as well,
+				  but this is much less intensive. Defaults to
+				  enabled.
+
+SAMPLE CONFIGURATION SNIPPET:
+
+# In the main part of your vhost config
+mcpage.enable = "disable"
+
+# ... snip ...
+
+$HTTP["cookie"] !~ ".*mysite_session"{
+	# whatever other stuff you have for anonymous visitors
+	mcpage.memcached-hosts = ("10.0.0.1:11211", "10.0.0.2:11211")
+	mcpage.memcached-namespace = "mysite-" # or unset for hostname
+	mcpage.memcached-keyprefix = "myprefix_"
+	mcpage.memcached-hashing = "CRC"
+	mcpage.memcached-behavior = "MODULA"
+	mcpage.memcached-expire = 10
+	mcpage.memcached-minsize = 64
+	mcpage.memcached-noblock = "enable"
+
+	mcpage.localmc-enable = "enable"
+	mcpage.localmc-expire = 3
+	#mcpage.localmc-socket = "/tmp/mc.sock"
+	#mcpage.localmc-addr = "192.168.1.1:11211"
+	mcpage.memcached-binary = "enable"
+	mcpage.md5 = "disable"
+
+	$HTTP["url"] =~ "^/story|^/main|^/comments" {
+		mcpage.enable = "enable"
+		}
+
+	}
