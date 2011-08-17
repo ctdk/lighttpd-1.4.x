@@ -1,0 +1,24 @@
+#! /bin/sh -e
+# postinst script for lighttpd
+
+if [ "$1" = "configure" ]; then
+   	if [ ! -r /var/www/index.lighttpd.html ];
+   	then
+   		cp /usr/share/lighttpd/index.html /var/www/index.lighttpd.html
+	fi
+        mkdir -p /var/run/lighttpd > /dev/null 2> /dev/null
+	chown www-data:www-data /var/log/lighttpd /var/run/lighttpd
+        chown www-data:www-data /var/cache/lighttpd /var/cache/lighttpd/compress /var/cache/lighttpd/uploads
+	chmod 0750 /var/log/lighttpd /var/run/lighttpd
+
+fi
+
+#update-alternatives \
+#    --install /usr/bin/spawn-fcgi \
+#        spawn-fcgi /usr/bin/spawn-fcgi.lighttpd 20 \
+#    --slave /usr/share/man/man1/spawn-fcgi.1.gz \
+#        spawn-fcgi.1.gz /usr/share/man/man1/spawn-fcgi.lighttpd.1.gz
+
+#DEBHELPER#
+
+exit 0

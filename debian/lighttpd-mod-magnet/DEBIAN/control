@@ -1,0 +1,15 @@
+Package: lighttpd-mod-magnet
+Source: lighttpd
+Version: 1.4.29.svn-1.3~dkos50+ct1
+Architecture: amd64
+Maintainer: Debian lighttpd maintainers <pkg-lighttpd-maintainers@lists.alioth.debian.org>
+Installed-Size: 124
+Depends: lighttpd (= 1.4.29.svn-1.3~dkos50+ct1), libc6 (>= 2.7-1), liblua5.1-0
+Section: web
+Priority: optional
+Homepage: http://www.lighttpd.net
+Description: Control the request handling module for lighttpd
+ mod_magnet can attract a request in several stages in the request-handling.
+ either at the same level as mod_rewrite, before any parsing of the URL is done
+ or at a later stage, when the doc-root is known and the physical-path is
+ already setup

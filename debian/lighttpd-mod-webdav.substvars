@@ -1,0 +1,2 @@
+shlibs:Depends=libc6 (>= 2.7-1), libsqlite3-0 (>= 3.5.9), libuuid1 (>= 1.05), libxml2 (>= 2.6.27)
+misc:Depends=

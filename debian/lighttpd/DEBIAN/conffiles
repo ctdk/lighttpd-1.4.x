@@ -1,0 +1,15 @@
+/etc/lighttpd/conf-available/10-fastcgi.conf
+/etc/lighttpd/conf-available/10-userdir.conf
+/etc/lighttpd/conf-available/10-ssl.conf
+/etc/lighttpd/conf-available/10-ssi.conf
+/etc/lighttpd/conf-available/10-simple-vhost.conf
+/etc/lighttpd/conf-available/10-cgi.conf
+/etc/lighttpd/conf-available/10-rrdtool.conf
+/etc/lighttpd/conf-available/10-status.conf
+/etc/lighttpd/conf-available/05-auth.conf
+/etc/lighttpd/conf-available/10-proxy.conf
+/etc/lighttpd/conf-available/README
+/etc/lighttpd/lighttpd.conf
+/etc/cron.daily/lighttpd
+/etc/logrotate.d/lighttpd
+/etc/init.d/lighttpd

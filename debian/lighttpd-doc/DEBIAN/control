@@ -1,0 +1,12 @@
+Package: lighttpd-doc
+Source: lighttpd
+Version: 1.4.29.svn-1.3~dkos50+ct1
+Architecture: all
+Maintainer: Debian lighttpd maintainers <pkg-lighttpd-maintainers@lists.alioth.debian.org>
+Installed-Size: 228
+Suggests: lighttpd
+Section: doc
+Priority: optional
+Homepage: http://www.lighttpd.net
+Description: Documentation for lighttpd
+ This package contains all documentation files for lighttpd.

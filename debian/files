@@ -1,0 +1,7 @@
+lighttpd-doc_1.4.29.svn-1.3~dkos50+ct1_all.deb doc optional
+lighttpd_1.4.29.svn-1.3~dkos50+ct1_amd64.deb web optional
+lighttpd-mod-mysql-vhost_1.4.29.svn-1.3~dkos50+ct1_amd64.deb web optional
+lighttpd-mod-trigger-b4-dl_1.4.29.svn-1.3~dkos50+ct1_amd64.deb web optional
+lighttpd-mod-cml_1.4.29.svn-1.3~dkos50+ct1_amd64.deb web optional
+lighttpd-mod-magnet_1.4.29.svn-1.3~dkos50+ct1_amd64.deb web optional
+lighttpd-mod-webdav_1.4.29.svn-1.3~dkos50+ct1_amd64.deb web optional
