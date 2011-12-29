@@ -693,7 +693,7 @@ static int connection_handle_write(server *srv, connection *con) {
 	/* write chunks from output_queue to network */
 	switch(network_write_chunkqueue(srv, con, con->output_queue)) {
 	case 0:
-		on->write_request_ts = srv->cur_ts;
+		con->write_request_ts = srv->cur_ts;
 		if (finished) {
 			/* log_error_write(srv, __FILE__, __LINE__, "s", "Finished, case 0"); */
 			connection_set_state(srv, con, CON_STATE_RESPONSE_END);
