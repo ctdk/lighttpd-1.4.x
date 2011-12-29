@@ -691,7 +691,7 @@ static int connection_handle_write(server *srv, connection *con) {
 		con->write_queue->bytes_out += len;
 	}
 	/* write chunks from output_queue to network */
-	switch(network_write_chunkqueue(srv, con, con->output_queue)) {
+	switch(network_write_chunkqueue(srv, con, con->output_queue, MAX_WRITE_LIMIT)) {
 	case 0:
 		con->write_request_ts = srv->cur_ts;
 		if (finished) {
