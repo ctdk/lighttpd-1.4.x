@@ -278,6 +278,7 @@ typedef struct {
 	buffer *ssl_cipher_list;
 	buffer *ssl_dh_file;
 	buffer *ssl_ec_curve;
+	unsigned short ssl_honor_cipher_order; /* determine SSL cipher in server-preferred order, not client-order */
 	unsigned short ssl_use_sslv2;
 	unsigned short ssl_use_sslv3;
 	unsigned short ssl_verifyclient;
@@ -285,6 +286,7 @@ typedef struct {
 	unsigned short ssl_verifyclient_depth;
 	buffer *ssl_verifyclient_username;
 	unsigned short ssl_verifyclient_export_cert;
+	unsigned short ssl_disable_client_renegotiation;
 
 	unsigned short use_ipv6, set_v6only; /* set_v6only is only a temporary option */
 	unsigned short defer_accept;
@@ -440,6 +442,7 @@ typedef struct {
 # ifndef OPENSSL_NO_TLSEXT
 	buffer *tlsext_server_name;
 # endif
+	unsigned int renegotiations; /* count of SSL_CB_HANDSHAKE_START */
 #endif
 	/* etag handling */
 	etag_flags_t etag_flags;
@@ -651,11 +654,9 @@ typedef struct server {
 
 	fdevent_handler_t event_handler;
 
-	int (* network_backend_write)(struct server *srv, connection *con, int fd, chunkqueue *cq);
-	int (* network_backend_read)(struct server *srv, connection *con, int fd, chunkqueue *cq);
+	int (* network_backend_write)(struct server *srv, connection *con, int fd, chunkqueue *cq, off_t max_bytes);
 #ifdef USE_OPENSSL
-	int (* network_ssl_backend_write)(struct server *srv, connection *con, SSL *ssl, chunkqueue *cq);
-	int (* network_ssl_backend_read)(struct server *srv, connection *con, SSL *ssl, chunkqueue *cq);
+	int (* network_ssl_backend_write)(struct server *srv, connection *con, SSL *ssl, chunkqueue *cq, off_t max_bytes);
 #endif
 
 	uid_t uid;

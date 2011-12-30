@@ -413,19 +413,31 @@ static void show_features (void) {
       "\t- libev (generic)\n"
 #endif
       "\nNetwork handler:\n\n"
-#if defined(USE_LINUX_SENDFILE) || defined(USE_FREEBSD_SENDFILE) || defined(USE_SOLARIS_SENDFILEV) || defined(USE_AIX_SENDFILE)
-      "\t+ sendfile\n"
+#if defined USE_LINUX_SENDFILE
+      "\t+ linux-sendfile\n"
 #else
-  #ifdef USE_WRITEV
+      "\t- linux-sendfile\n"
+#endif
+#if defined USE_FREEBSD_SENDFILE
+      "\t+ freebsd-sendfile\n"
+#else
+      "\t- freebsd-sendfile\n"
+#endif
+#if defined USE_SOLARIS_SENDFILEV
+      "\t+ solaris-sendfilev\n"
+#else
+      "\t- solaris-sendfilev\n"
+#endif
+#if defined USE_WRITEV
       "\t+ writev\n"
-  #else
+#else
+      "\t- writev\n"
+#endif
       "\t+ write\n"
-  #endif
-  #ifdef USE_MMAP
+#ifdef USE_MMAP
       "\t+ mmap support\n"
-  #else
+#else
       "\t- mmap support\n"
-  #endif
 #endif
       "\nFeatures:\n\n"
 #ifdef HAVE_IPV6
@@ -1124,6 +1136,14 @@ int main (int argc, char **argv) {
 				"s", "fdevent_init failed");
 		return -1;
 	}
+
+	/* libev backend overwrites our SIGCHLD handler and calls waitpid on SIGCHLD; we want our own SIGCHLD handling. */
+#ifdef HAVE_SIGACTION
+	sigaction(SIGCHLD, &act, NULL);
+#elif defined(HAVE_SIGNAL)
+	signal(SIGCHLD,  signal_handler);
+#endif
+
 	/*
 	 * kqueue() is called here, select resets its internals,
 	 * all server sockets get their handlers

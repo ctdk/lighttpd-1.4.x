@@ -1,7 +1,7 @@
 dnl                                               -*- Autoconf -*-
 dnl Process this file with autoconf to produce a configure script.
 AC_PREREQ(2.57)
-AC_INIT([lighttpd], [1.4.30], [contact@lighttpd.net])
+AC_INIT([lighttpd], [1.4.31], [contact@lighttpd.net])
 AC_CONFIG_SRCDIR([src/server.c])
 AC_CONFIG_HEADER([config.h])
 AC_CONFIG_MACRO_DIR([m4])
@@ -626,6 +626,7 @@ AC_CONFIG_FILES([Makefile src/Makefile
 		 doc/config/Makefile \
 		 doc/scripts/Makefile \
 		 doc/initscripts/Makefile \
+		 doc/systemd/Makefile \
 		 doc/outdated/Makefile \
 		 doc/Makefile \
 		 tests/Makefile \

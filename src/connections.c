@@ -230,6 +230,12 @@ static int connection_handle_read_ssl(server *srv, connection *con) {
 
 		len = SSL_read(con->ssl, b->ptr + read_offset, toread);
 
+		if (con->renegotiations > 1 && con->conf.ssl_disable_client_renegotiation) {
+			connection_set_state(srv, con, CON_STATE_ERROR);
+			log_error_write(srv, __FILE__, __LINE__, "s", "SSL: renegotiation initiated by client");
+			return -1;
+		}
+
 		if (len > 0) {
 			if (b->used > 0) b->used--;
 			b->used += len;
@@ -453,6 +459,7 @@ static int connection_handle_write_prepare(server *srv, connection *con) {
 		default:
 			switch(con->http_status) {
 			case 400: /* bad request */
+			case 401: /* authorization required */
 			case 414: /* overload request header */
 			case 505: /* unknown protocol */
 			case 207: /* this was webdav */
@@ -684,8 +691,9 @@ static int connection_handle_write(server *srv, connection *con) {
 		con->write_queue->bytes_out += len;
 	}
 	/* write chunks from output_queue to network */
-	switch(network_write_chunkqueue(srv, con, con->output_queue)) {
+	switch(network_write_chunkqueue(srv, con, con->output_queue, MAX_WRITE_LIMIT)) {
 	case 0:
+		con->write_request_ts = srv->cur_ts;
 		if (finished) {
 			/* log_error_write(srv, __FILE__, __LINE__, "s", "Finished, case 0"); */
 			connection_set_state(srv, con, CON_STATE_RESPONSE_END);
@@ -707,6 +715,7 @@ static int connection_handle_write(server *srv, connection *con) {
 		joblist_append(srv, con);
 		break;
 	case 1:
+		con->write_request_ts = srv->cur_ts;
 		/* log_error_write(srv, __FILE__, __LINE__, "s", "Case 1. Herm."); */
 		con->is_writable = 0;
 
@@ -1329,8 +1338,6 @@ static handler_t connection_handle_fdevent(server *srv, void *context, int reven
 			log_error_write(srv, __FILE__, __LINE__, "ds",
 					con->fd,
 					"handle write failed.");
-		} else if (con->state == CON_STATE_WRITE) {
-			con->write_request_ts = srv->cur_ts;
 		}
 	}
 
@@ -1430,9 +1437,8 @@ connection *connection_accept(server *srv, server_socket *srv_socket) {
 				return NULL;
 			}
 
-#ifndef OPENSSL_NO_TLSEXT
+			con->renegotiations = 0;
 			SSL_set_app_data(con->ssl, con);
-#endif
 			SSL_set_accept_state(con->ssl);
 			con->conf.is_ssl=1;
 
@@ -1746,8 +1752,6 @@ int connection_state_machine(server *srv, connection *con) {
 							con->fd,
 							"handle write failed.");
 					connection_set_state(srv, con, CON_STATE_ERROR);
-				} else if (con->state == CON_STATE_WRITE) {
-					con->write_request_ts = srv->cur_ts;
 				}
 			}
 			/* log_error_write(srv, __FILE__, __LINE__, "sd", "Connection still writable? ", con->is_writable); */

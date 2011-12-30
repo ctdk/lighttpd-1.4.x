@@ -27,22 +27,17 @@
 /* on linux 2.4.29 + debian/ubuntu we have crashes if this is enabled */
 #undef HAVE_POSIX_FADVISE
 
-int network_write_chunkqueue_linuxsendfile(server *srv, connection *con, int fd, chunkqueue *cq) {
+int network_write_chunkqueue_linuxsendfile(server *srv, connection *con, int fd, chunkqueue *cq, off_t max_bytes) {
 	chunk *c;
-	size_t chunks_written = 0;
 
-	/* log_error_write(srv, __FILE__, __LINE__, "s", "Getting here?");
-	log_error_write(srv, __FILE__, __LINE__, "sd", "What do we think bytes_in is?:", con->write_queue->bytes_in);
-	*/
-
-	for(c = cq->first; c; c = c->next, chunks_written++) {
+	for(c = cq->first; (max_bytes > 0) && (NULL != c); c = c->next) {
 		int chunk_finished = 0;
 
 		/* log_error_write(srv, __FILE__, __LINE__, "s", "Started chunk write"); */
 		switch(c->type) {
 		case MEM_CHUNK: {
 			char * offset;
-			size_t toSend;
+			off_t toSend;
 			ssize_t r;
 
 			size_t num_chunks, i;
@@ -50,12 +45,10 @@ int network_write_chunkqueue_linuxsendfile(server *srv, connection *con, int fd,
 			chunk *tc;
 			size_t num_bytes = 0;
 
-			/* we can't send more then SSIZE_MAX bytes in one chunk */
-
 			/* build writev list
 			 *
 			 * 1. limit: num_chunks < UIO_MAXIOV
-			 * 2. limit: num_bytes < SSIZE_MAX
+			 * 2. limit: num_bytes < max_bytes
 			 */
 			for (num_chunks = 0, tc = c;
 			     tc && tc->type == MEM_CHUNK && num_chunks < UIO_MAXIOV;
@@ -75,10 +68,9 @@ int network_write_chunkqueue_linuxsendfile(server *srv, connection *con, int fd,
 					/* log_error_write(srv, __FILE__, __LINE__, "ss", "What do we haveth? ", chunks[i].iov_base); */
 
 					/* protect the return value of writev() */
-					if (toSend > SSIZE_MAX ||
-					    num_bytes + toSend > SSIZE_MAX) {
-						/* log_error_write(srv, __FILE__, __LINE__, "s", "We think toSend is bigger than ssize max"); */
-						chunks[i].iov_len = SSIZE_MAX - num_bytes;
+					if (toSend > max_bytes ||
+					    (off_t) num_bytes + toSend > max_bytes) {
+						chunks[i].iov_len = max_bytes - num_bytes;
 
 						num_chunks = i + 1;
 						break;
@@ -112,6 +104,9 @@ int network_write_chunkqueue_linuxsendfile(server *srv, connection *con, int fd,
 
 			/* check which chunks have been written */
 			cq->bytes_out += r;
+			max_bytes -= r;
+
+			/* log_error_write(srv, __FILE__, __LINE__, "sdsd", "bytes out is: ", cq->bytes_out, "and r is: ", r); */
 
 			/* log_error_write(srv, __FILE__, __LINE__, "sdsd", "bytes out is: ", cq->bytes_out, "and r is: ", r); */
 
@@ -124,11 +119,10 @@ int network_write_chunkqueue_linuxsendfile(server *srv, connection *con, int fd,
 
 					if (chunk_finished) {
 						/* skip the chunks from further touches */
-						chunks_written++;
 						c = c->next;
 					} else {
 						/* chunks_written + c = c->next is done in the for()*/
-						chunk_finished++;
+						chunk_finished = 1;
 					}
 				} else {
 					/* partially written */
@@ -145,13 +139,12 @@ int network_write_chunkqueue_linuxsendfile(server *srv, connection *con, int fd,
 		case FILE_CHUNK: {
 			ssize_t r;
 			off_t offset;
-			size_t toSend;
+			off_t toSend;
 			stat_cache_entry *sce = NULL;
 
 			offset = c->file.start + c->offset;
-			/* limit the toSend to 2^31-1 bytes in a chunk */
-			toSend = c->file.length - c->offset > ((1 << 30) - 1) ?
-				((1 << 30) - 1) : c->file.length - c->offset;
+			toSend = c->file.length - c->offset;
+			if (toSend > max_bytes) toSend = max_bytes;
 
 			/* open file if not already opened */
 			if (-1 == c->file.fd) {
@@ -230,6 +223,7 @@ int network_write_chunkqueue_linuxsendfile(server *srv, connection *con, int fd,
 
 			c->offset += r;
 			cq->bytes_out += r;
+			max_bytes -= r;
 
 			if (c->offset == c->file.length) {
 				chunk_finished = 1;
@@ -258,7 +252,7 @@ int network_write_chunkqueue_linuxsendfile(server *srv, connection *con, int fd,
 		}
 	}
 
-	return chunks_written;
+	return 0;
 }
 
 #endif

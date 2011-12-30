@@ -25,6 +25,27 @@
 # include <openssl/ssl.h>
 # include <openssl/err.h>
 # include <openssl/rand.h>
+# include <openssl/dh.h>
+# include <openssl/bn.h>
+
+# if OPENSSL_VERSION_NUMBER >= 0x0090800fL
+#  ifndef OPENSSL_NO_ECDH
+# include <openssl/ecdh.h>
+#  endif
+# endif
+#endif
+
+#ifdef USE_OPENSSL
+static void ssl_info_callback(const SSL *ssl, int where, int ret) {
+	UNUSED(ret);
+
+	if (0 != (where & SSL_CB_HANDSHAKE_START)) {
+		connection *con = SSL_get_app_data(ssl);
+		++con->renegotiations;
+	} else if (0 != (where & SSL_CB_HANDSHAKE_DONE)) {
+		ssl->s3->flags |= SSL3_FLAGS_NO_RENEGOTIATE_CIPHERS;
+	}
+}
 #endif
 
 static handler_t network_server_handle_fdevent(server *srv, void *context, int revents) {
@@ -480,8 +501,10 @@ int network_init(server *srv) {
 	network_backend_t backend;
 
 #if OPENSSL_VERSION_NUMBER >= 0x0090800fL
+#ifndef OPENSSL_NO_ECDH
 	EC_KEY *ecdh;
 	int nid;
+#endif
 #endif
 
 #ifdef USE_OPENSSL
@@ -553,6 +576,11 @@ int network_init(server *srv) {
 	/* load SSL certificates */
 	for (i = 0; i < srv->config_context->used; i++) {
 		specific_config *s = srv->config_storage[i];
+#ifndef SSL_OP_NO_COMPRESSION
+# define SSL_OP_NO_COMPRESSION 0
+#endif
+		long ssloptions =
+			SSL_OP_ALL | SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION | SSL_OP_NO_COMPRESSION;
 
 		if (buffer_is_empty(s->ssl_pemfile)) continue;
 
@@ -586,6 +614,9 @@ int network_init(server *srv) {
 			return -1;
 		}
 
+		SSL_CTX_set_options(s->ssl_ctx, ssloptions);
+		SSL_CTX_set_info_callback(s->ssl_ctx, ssl_info_callback);
+
 		if (!s->ssl_use_sslv2) {
 			/* disable SSLv2 */
 			if (!(SSL_OP_NO_SSLv2 & SSL_CTX_set_options(s->ssl_ctx, SSL_OP_NO_SSLv2))) {
@@ -610,6 +641,10 @@ int network_init(server *srv) {
 				log_error_write(srv, __FILE__, __LINE__, "ss", "SSL:",
 						ERR_error_string(ERR_get_error(), NULL));
 				return -1;
+			}
+
+			if (s->ssl_honor_cipher_order) {
+				SSL_CTX_set_options(s->ssl_ctx, SSL_OP_CIPHER_SERVER_PREFERENCE);
 			}
 		}
 
@@ -847,7 +882,7 @@ int network_register_fdevents(server *srv) {
 	return 0;
 }
 
-int network_write_chunkqueue(server *srv, connection *con, chunkqueue *cq) {
+int network_write_chunkqueue(server *srv, connection *con, chunkqueue *cq, off_t max_bytes) {
 	int ret = -1;
 	off_t written = 0;
 #ifdef TCP_CORK
@@ -855,14 +890,32 @@ int network_write_chunkqueue(server *srv, connection *con, chunkqueue *cq) {
 #endif
 	server_socket *srv_socket = con->srv_socket;
 
-	if (con->conf.global_kbytes_per_second &&
-	    *(con->conf.global_bytes_per_second_cnt_ptr) > con->conf.global_kbytes_per_second * 1024) {
-		/* we reached the global traffic limit */
+	if (con->conf.global_kbytes_per_second) {
+		off_t limit = con->conf.global_kbytes_per_second * 1024 - *(con->conf.global_bytes_per_second_cnt_ptr);
+		if (limit <= 0) {
+			/* we reached the global traffic limit */
 
-		con->traffic_limit_reached = 1;
-		joblist_append(srv, con);
+			con->traffic_limit_reached = 1;
+			joblist_append(srv, con);
 
-		return 1;
+			return 1;
+		} else {
+			if (max_bytes > limit) max_bytes = limit;
+		}
+	}
+
+	if (con->conf.kbytes_per_second) {
+		off_t limit = con->conf.kbytes_per_second * 1024 - con->bytes_written_cur_second;
+		if (limit <= 0) {
+			/* we reached the traffic limit */
+
+			con->traffic_limit_reached = 1;
+			joblist_append(srv, con);
+
+			return 1;
+		} else {
+			if (max_bytes > limit) max_bytes = limit;
+		}
 	}
 
 	socklen_t oldlen;
@@ -891,10 +944,10 @@ int network_write_chunkqueue(server *srv, connection *con, chunkqueue *cq) {
 
 	if (srv_socket->is_ssl) {
 #ifdef USE_OPENSSL
-		ret = srv->network_ssl_backend_write(srv, con, con->ssl, cq);
+		ret = srv->network_ssl_backend_write(srv, con, con->ssl, cq, max_bytes);
 #endif
 	} else {
-		ret = srv->network_backend_write(srv, con, con->fd, cq);
+		ret = srv->network_backend_write(srv, con, con->fd, cq, max_bytes);
 	}
 
 	if (ret >= 0) {
@@ -920,12 +973,5 @@ int network_write_chunkqueue(server *srv, connection *con, chunkqueue *cq) {
 
 	*(con->conf.global_bytes_per_second_cnt_ptr) += written;
 
-	if (con->conf.kbytes_per_second &&
-	    (con->bytes_written_cur_second > con->conf.kbytes_per_second * 1024)) {
-		/* we reached the traffic limit */
-
-		con->traffic_limit_reached = 1;
-		joblist_append(srv, con);
-	}
 	return ret;
 }

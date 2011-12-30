@@ -3,8 +3,23 @@
 NEWS
 ====
 
-- 1.4.30 -
+- 1.4.31 -
+  * [ssl] fix segfault in counting renegotiations for openssl versions without TLSEXT/SNI
+  * Move fdevent subsystem includes to implementation files to reduce conflicts (fixes #2373)
+
+- 1.4.30 - 2011-12-18
   * Always use our 'own' md5 implementation, fixes linking issues on MacOS (fixes #2331)
+  * Limit amount of bytes we send in one go; fixes stalling in one connection and timeouts on slow systems.
+  * [ssl] fix build errors when Elliptic-Curve Diffie-Hellman is disabled
+  * Add static-file.disable-pathinfo option to prevent handling of urls like .../secret.php/image.jpg as static file
+  * Don't overwrite 401 (auth required) with 501 (unknown method) (fixes #2341)
+  * Fix mod_status bug: always showed "0/0" in the "Read" column for uploads (fixes #2351)
+  * [mod_auth] Fix signedness error in http_auth (fixes #2370, CVE-2011-4362)
+  * [ssl] count renegotiations to prevent client renegotiations
+  * [ssl] add option to honor server cipher order (fixes #2364, BEAST attack)
+  * [core] accept dots in ipv6 addresses in host header (fixes #2359)
+  * [ssl] fix ssl connection aborts if files are larger than the MAX_WRITE_LIMIT (256kb)
+  * [libev/cgi] fix waitpid ECHILD errors in cgi with libev (fixes #2324)
 
 - 1.4.29 - 2011-07-03
   * Fix mod_proxy waiting for response even if content-length is 0 (fixes #2259)
