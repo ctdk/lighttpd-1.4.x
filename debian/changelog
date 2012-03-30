@@ -1,3 +1,8 @@
+lighttpd (1.4.31-svn-1.1~dkos+ct1) stable; urgency=low
+  * No longer cache any non-200 responses.
+
+ --   Jeremy Bingham (Debian Pkg Building) <jeremy-debian@dailykos.com>  Fri, 30 Mar 2012 10:26:00 -0700
+
 lighttpd (1.4.31-svn-1.0~dkos+ct1) stable; urgency=low
   * Update to latest svn.
 

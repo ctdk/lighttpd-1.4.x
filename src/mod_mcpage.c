@@ -857,7 +857,10 @@ SUBREQUEST_FUNC(mod_mcpage_handle_subrequest) {
 
         /* If http status seems to indicate an error, we don't want to store it,
          * so bail. NOTE: we may not want to store 3xx responses either. */
-        if (con->http_status >= 400)
+        /* if (con->http_status >= 400) */
+	/* We do not, in fact, want to cache non-200 responses. Pass by non-
+	   200 responses now. */
+	if (con->http_status != 200)
                 return HANDLER_GO_ON;
 
         if (con->plugin_ctx[p->id])
