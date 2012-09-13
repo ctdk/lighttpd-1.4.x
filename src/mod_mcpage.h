@@ -39,7 +39,9 @@
  * behavior working with memcached_get -- the async stuff available with mget
  * and fetch has bizarre consequences elsewhere in the program. */
 
-#define MC_SEND_TIMEOUT	250000
+/* Was 250000 for some reason; 100 milliseconds seems more reasonable for a
+ * recieve timeout, I think. */
+#define MC_SEND_TIMEOUT	100
 
 /* libmemcached includes (since libmemcached, not libmemache, is the new 
  * hotness. Plus, it's maintained).
