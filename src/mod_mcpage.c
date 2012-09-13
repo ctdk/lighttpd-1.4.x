@@ -199,7 +199,7 @@ T_CONFIG_SCOPE_CONNECTION },		/* 17 */
 		s->md5		= 0;
 		s->announce	= 1;
 		s->failure_limit = 5;
-		s->auto_eject 	= 0;
+		s->auto_eject 	= 1;
 		s->retry_timeout = 5;
 
 		cv[0].destination = &(s->enable);
@@ -225,6 +225,7 @@ T_CONFIG_SCOPE_CONNECTION },		/* 17 */
 		cv[20].destination = &(s->announce);
 		cv[21].destination = &(s->failure_limit);
 		cv[22].destination = &(s->auto_eject);
+		cv[23].destination = &(s->retry_timeout);
 
 		p->config_storage[i] = s;
 
@@ -318,6 +319,26 @@ T_CONFIG_SCOPE_CONNECTION },		/* 17 */
                                        		log_error_write(srv, __FILE__, __LINE__, "ss", "Error setting memcached binary protocol: ", memcached_strerror(s->mc, rc));
                                         	return HANDLER_ERROR;
                                         	}
+					}
+				if (s->auto_eject){
+					rc = memcached_behavior_set(s->mc, MEMCACHED_BEHAVIOR_SERVER_FAILURE_LIMIT, s->failure_limit);
+					if (rc != MEMCACHED_SUCCESS){
+						log_error_write(srv, __FILE__, __LINE__, "ss", "Error setting memcached failure limit: ", memcached_strerror(s->mc, rc));
+                                        	return HANDLER_ERROR;
+
+						}
+					rc = memcached_behavior_set(s->mc, MEMCACHED_BEHAVIOR_RETRY_TIMEOUT, s->retry_timeout);
+					if (rc != MEMCACHED_SUCCESS){
+						log_error_write(srv, __FILE__, __LINE__, "ss", "Error setting memcached retry timeout: ", memcached_strerror(s->mc, rc));
+                                        	return HANDLER_ERROR;
+
+						}
+					rc = memcached_behavior_set(s->mc, MEMCACHED_BEHAVIOR_AUTO_EJECT_HOSTS, 1);
+					if (rc != MEMCACHED_SUCCESS){
+						log_error_write(srv, __FILE__, __LINE__, "ss", "Error setting memcached auto eject hosts: ", memcached_strerror(s->mc, rc));
+                                        	return HANDLER_ERROR;
+
+						}
 					}
 				}
 			for (k = 0; k < s->mc_hosts->used; k++){
@@ -449,6 +470,7 @@ static int mod_mcpage_patch_connection(server *srv, connection *con, plugin_data
 	PATCH(announce);
 	PATCH(failure_limit);
 	PATCH(auto_eject);
+	PATCH(retry_timeout);
 
 	/* skip the first, the global context */
 	for (i = 1; i < srv->config_context->used; i++) {
@@ -533,6 +555,9 @@ static int mod_mcpage_patch_connection(server *srv, connection *con, plugin_data
 			}
 			else if (buffer_is_equal_string(du->key, CONST_STR_LEN(MCPAGE_CONFIG_AUTO_EJECT))){
 				PATCH(auto_eject);
+			}
+			else if (buffer_is_equal_string(du->key, CONST_STR_LEN(MCPAGE_CONFIG_RETRY_TIMEOUT))){
+				PATCH(retry_timeout);
 			}
 		}
 	}
