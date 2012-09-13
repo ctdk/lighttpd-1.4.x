@@ -427,9 +427,29 @@ T_CONFIG_SCOPE_CONNECTION },		/* 17 */
 				if (s->mc_binary){
 					rc = memcached_behavior_set(s->lmc, MEMCACHED_BEHAVIOR_BINARY_PROTOCOL, 1);
                                 	if (rc != MEMCACHED_SUCCESS){
-                                        	log_error_write(srv, __FILE__, __LINE__, "ss", "Error setting memcached binary protocol: ", memcached_strerror(s->lmc, rc));
+                                        	log_error_write(srv, __FILE__, __LINE__, "ss", "Error setting local memcached binary protocol: ", memcached_strerror(s->lmc, rc));
                                         	return HANDLER_ERROR;
                                         	}
+					}
+				if (s->auto_eject){
+					rc = memcached_behavior_set(s->lmc, MEMCACHED_BEHAVIOR_SERVER_FAILURE_LIMIT, s->failure_limit);
+					if (rc != MEMCACHED_SUCCESS){
+						log_error_write(srv, __FILE__, __LINE__, "ss", "Error setting local memcached failure limit: ", memcached_strerror(s->lmc, rc));
+                                        	return HANDLER_ERROR;
+
+						}
+					rc = memcached_behavior_set(s->lmc, MEMCACHED_BEHAVIOR_RETRY_TIMEOUT, s->retry_timeout);
+					if (rc != MEMCACHED_SUCCESS){
+						log_error_write(srv, __FILE__, __LINE__, "ss", "Error setting local memcached retry timeout: ", memcached_strerror(s->lmc, rc));
+                                        	return HANDLER_ERROR;
+
+						}
+					rc = memcached_behavior_set(s->lmc, MEMCACHED_BEHAVIOR_AUTO_EJECT_HOSTS, 1);
+					if (rc != MEMCACHED_SUCCESS){
+						log_error_write(srv, __FILE__, __LINE__, "ss", "Error setting local memcached auto eject hosts: ", memcached_strerror(s->lmc, rc));
+                                        	return HANDLER_ERROR;
+
+						}
 					}
 				}
 			}
