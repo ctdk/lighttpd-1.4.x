@@ -132,6 +132,9 @@ SETDEFAULTS_FUNC(mod_mcpage_set_defaults) {
  MCPAGE_CONFIG_MEMCACHED_BINARY		 "mcpage.memcached-binary"
  MCPAGE_CONFIG_MD5                       "mcpage.md5"
  MCPAGE_CONFIG_ANNOUNCE                  "mcpage.announce"
+ MCPAGE_CONFIG_FAILURE_LIMIT 		 "mcpage.failure-limit"
+ MCPAGE_CONFIG_AUTO_EJECT 		 "mcpage.auto-eject"
+ MCPAGE_CONFIG_RETRY_TIMEOUT 		 "mcpage.retry-timeout"
  */
 
 	config_values_t cv[] = {
@@ -160,6 +163,9 @@ T_CONFIG_SCOPE_CONNECTION },		/* 17 */
 		{ MCPAGE_CONFIG_MEMCACHED_BINARY,	NULL, T_CONFIG_BOOLEAN, T_CONFIG_SCOPE_CONNECTION },		/* 18 */
 		{ MCPAGE_CONFIG_MD5,			NULL, T_CONFIG_BOOLEAN, T_CONFIG_SCOPE_CONNECTION },		/* 19 */
 		{ MCPAGE_CONFIG_ANNOUNCE, 		 NULL, T_CONFIG_BOOLEAN, T_CONFIG_SCOPE_CONNECTION },		/* 20 */
+		{ MCPAGE_CONFIG_FAILURE_LIMIT, 		 NULL, T_CONFIG_SHORT, T_CONFIG_SCOPE_CONNECTION },		/* 21 */
+		{ MCPAGE_CONFIG_AUTO_EJECT, 		 NULL, T_CONFIG_BOOLEAN, T_CONFIG_SCOPE_CONNECTION },		/* 22 */
+		{ MCPAGE_CONFIG_RETRY_TIMEOUT, 		 NULL, T_CONFIG_SHORT, T_CONFIG_SCOPE_CONNECTION },		/* 23 */
 		{ NULL,                         NULL, T_CONFIG_UNSET, T_CONFIG_SCOPE_UNSET }
 	};
 
@@ -192,6 +198,9 @@ T_CONFIG_SCOPE_CONNECTION },		/* 17 */
 		s->mc_binary	= 0;
 		s->md5		= 0;
 		s->announce	= 1;
+		s->failure_limit = 5;
+		s->auto_eject 	= 0;
+		s->retry_timeout = 5;
 
 		cv[0].destination = &(s->enable);
 		cv[1].destination = s->mc_hosts;
@@ -214,6 +223,8 @@ T_CONFIG_SCOPE_CONNECTION },		/* 17 */
 		cv[18].destination = &(s->mc_binary);
 		cv[19].destination = &(s->md5);
 		cv[20].destination = &(s->announce);
+		cv[21].destination = &(s->failure_limit);
+		cv[22].destination = &(s->auto_eject);
 
 		p->config_storage[i] = s;
 
@@ -436,6 +447,8 @@ static int mod_mcpage_patch_connection(server *srv, connection *con, plugin_data
 	PATCH(mc_binary);
 	PATCH(md5);
 	PATCH(announce);
+	PATCH(failure_limit);
+	PATCH(auto_eject);
 
 	/* skip the first, the global context */
 	for (i = 1; i < srv->config_context->used; i++) {
@@ -514,6 +527,12 @@ static int mod_mcpage_patch_connection(server *srv, connection *con, plugin_data
                         }
 			else if (buffer_is_equal_string(du->key, CONST_STR_LEN(MCPAGE_CONFIG_ANNOUNCE))){
 				PATCH(announce);
+			}
+			else if (buffer_is_equal_string(du->key, CONST_STR_LEN(MCPAGE_CONFIG_FAILURE_LIMIT))){
+				PATCH(failure_limit);
+			}
+			else if (buffer_is_equal_string(du->key, CONST_STR_LEN(MCPAGE_CONFIG_AUTO_EJECT))){
+				PATCH(auto_eject);
 			}
 		}
 	}

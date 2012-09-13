@@ -73,6 +73,9 @@
 #define MCPAGE_CONFIG_MEMCACHED_BINARY		"mcpage.memcached-binary"
 #define MCPAGE_CONFIG_MD5			"mcpage.md5"
 #define MCPAGE_CONFIG_ANNOUNCE			"mcpage.announce"
+#define MCPAGE_CONFIG_FAILURE_LIMIT 		"mcpage.failure-limit"
+#define MCPAGE_CONFIG_AUTO_EJECT 		"mcpage.auto-eject"
+#define MCPAGE_CONFIG_RETRY_TIMEOUT 		"mcpage.retry-timeout"
 
 /* Max memcached object size in KB. If you've modified memcached to accept
  * larger objects, redefine this. */
@@ -114,6 +117,9 @@ typedef struct {
 	unsigned short mc_binary;
 	unsigned short md5;
 	unsigned short announce;
+	unsigned short failure_limit;
+	unsigned short auto_eject;
+	unsigned short retry_timeout;
 } plugin_config;
 
 typedef struct {
