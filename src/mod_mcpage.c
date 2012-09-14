@@ -198,7 +198,7 @@ T_CONFIG_SCOPE_CONNECTION },		/* 17 */
 		s->mc_binary	= 0;
 		s->md5		= 0;
 		s->announce	= 1;
-		s->failure_limit = 5;
+		s->failure_limit = 3;
 		s->auto_eject 	= 1;
 		s->retry_timeout = 5;
 
