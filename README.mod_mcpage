@@ -142,11 +142,17 @@ nothing at all			  connect to (like /tmp/memcached.sock). If you
 				  sensible default of "127.0.0.1:11211".
 mcpage.md5 = "enable|disable"	- Use a MD5 hash of the URI for the memcached
 				  key. Default disabled.
-mcpage.announce	= "enabled|disabled
+mcpage.announce	= "enabled|disabled"
 				- Add 'X-Served-by-memcached' to the response
 				  headers. mcpage.debug will do this as well,
 				  but this is much less intensive. Defaults to
 				  enabled.
+mcpage.failure-limit 		- How many times a server can fail before it's
+				  marked dead. Defaults to 3.
+mcpage.auto-eject = "enabled|disabled"
+				- If enabled, automatically eject dead hosts.
+mcpage.retry-timeout 		- How many seconds to wait before trying a dead
+				  server again.
 
 SAMPLE CONFIGURATION SNIPPET:
 
