@@ -147,10 +147,12 @@ mcpage.announce	= "enabled|disabled"
 				  headers. mcpage.debug will do this as well,
 				  but this is much less intensive. Defaults to
 				  enabled.
-mcpage.failure-limit 		- How many times a server can fail before it's
-				  marked dead. Defaults to 3.
 mcpage.auto-eject = "enabled|disabled"
 				- If enabled, automatically eject dead hosts.
+				  This must be enabled to use failure-limit and
+				  retry-timeout.
+mcpage.failure-limit 		- How many times a server can fail before it's
+				  marked dead. Defaults to 3.
 mcpage.retry-timeout 		- How many seconds to wait before trying a dead
 				  server again.
 
