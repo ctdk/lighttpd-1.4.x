@@ -1,3 +1,8 @@
+lighttpd (1.4.31-svn-1.2~dkos+ct1) stable; urgency=low
+  * Change how the receive timeout and autoejecting deat hosts works.
+
+ --   Jeremy Bingham (Debian Pkg Building) <jeremy-debian@dailykos.com>  Fri, 14 Sep 2012 10:17:00 -0700
+
 lighttpd (1.4.31-svn-1.1~dkos+ct1) stable; urgency=low
   * No longer cache any non-200 responses.
 
